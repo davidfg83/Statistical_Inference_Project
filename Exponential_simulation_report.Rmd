@@ -1,0 +1,142 @@
+---
+title: 'The Exponential Distribution: What Can We Learn from Simulated Data?'
+author: "David Gonzalez"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Project Overview
+
+In this report, I simulate 1000 samples of 40 iid exponentially distributed random variables in order to study the empirical distribution of the sample mean and variance.
+
+The simulated data is consistent with the predictions of the law of large numbers (LLN) and the central limit theorem (CLT):
+
+- as the LLN predicts, the average mean and variance across the samples are indeed very close to the values that they are estimating;
+
+- as the CLT implies, the distribution of the averages of the 1000 simulated samples approximately resembles a normal distribution.
+
+NOTE: Instead of creating a main report with 3 pages and an appendix with 3 pages, I integrated the code and the graphs in the report, which has a total of 5 pages.
+
+## Data Simulation
+
+The purpose of the simulation is to create 1000 simulations/samples with 40 random variables each, all identically and independently drawn according to an exponential distribution with rate parameter $\lambda = 0.2$. Lambda determines the mean ($\mu$) and standard deviation ($\sigma$) of the exponential distribution, which are both equal to $1/\lambda$. That is, for an exponential distribution, $\mu = \sigma = 1/\lambda$.
+
+Given our assumption that $\lambda = 0.2$, it follows that we have a theoretical mean and standard deviation of 1/0.2 = 5. It further follows that the theoretical variance of the distribution is $\sigma^2\ = 25$. 
+
+The code below creates a matrix with 40,000 entries divided into 1000 rows and 40 columns, which means that, in effect, each row contains one simulation/sample with 40 observations.
+```{r data simulation}
+set.seed(1)
+## create data matrix with 1000 rows/simulations and 40 columns/variables. 
+data <- matrix(rexp(40000,.2), 1000, 40) 
+```
+
+This simulated data allows us to calculate the average mean and variance across samples, which we will use as our estimates of the respective theoretical values. 
+
+## How close is the sample mean to the theoretical mean?
+
+The law of large numbers implies that we should expect the average of the 1000 sample means (each taken across the 40 observations in each simulation/sample) to be quite close to the theoretical mean of $\mu = 1/\lambda = 1/0.2 = 5$. 
+
+Let's check if this is true by first calculating the average of each of the 1,000 simulations and store it in the variable **means**. We can then calculate our estimate for the population as the mean across individual simulation means:
+
+```{r, mean calculation}
+## apply mean function to dimension 1 (rows) to calculate the mean of each row/simulation
+means <- apply(data, 1, mean)
+## calculate average of these means
+mean(means)
+```
+
+As expected, the resulting value, 4.99, is close to the theoretical mean $\mu = 1/\lambda = 1/0.2 = 5$. 
+
+We can further investigate the properties of the sample mean by drawing its distribution using a histogram:
+
+``` {r, histogram with sample distribution, fig.height=4, fig.width=4, fig.align='center'}
+## load ggplot
+library(ggplot2)
+## convert sample means to a dataframe
+sm <- as.data.frame(means)
+## store mean of sample means
+mosm <- mean(sm$means)
+## create histogram;
+g <- ggplot(sm, aes(means)) + geom_histogram(aes(y = after_stat(density), fill = "salmon")) 
+## remove legend, add title and fix x label
+g <- g + theme(legend.position="none") + ggtitle("Distribution of Means") +xlab("mean")
+## add density line and sample mean
+g <- g + geom_density(linewidth = 1) + geom_vline(xintercept = mosm, linewidth = 1)
+g
+```
+
+As we will discuss later, the distribution in the histogram looks aproximately normal, centered around the estimated mean of 4.99, which is represented with a vertical line on the graph.
+
+## How close is the sample variance to the theoretical variance?
+
+Once again, we will be calculating the average of a statistic taken for each of the 1000 simulations/samples. In this case, that statistic is the variance. According to the law of large numbers, the average variance across the 1000 samples should also limit to the value that it seeks to estimate: the population theoretical variance $\sigma^2 = (1/\lambda)^2 = (1/0.2)^2 = 25$. 
+
+To see if this is true, I calculate the variance of each simulation and store it in the variable **variances**. I then calculate the mean of these variances. This average of the sample variances is our estimate of the sample population variance:
+
+```{r, variance calculation}
+## apply variance function to dimension 1 (rows) to calculate variance of each simulation
+variances <- apply(data, 1, var)
+## calculate average of these variances
+mean(variances)
+```
+
+The calculated average variance is 25.06, which is once again very close to the value that it seeks to estimate $\sigma^2 = 25$, as predicted by the law of large numbers. 
+
+## Does the distribution of the sample mean look approximately normal?
+
+According to the central limit theorem, the answer to this question should be yes. As a reminder, the theorem implies that the average of an IID variable has a distribution that approaches a standard normal as the sample increases. In our case, our variable of interest is the sample mean taken for each of the 1000 simulations, each comprising 40 elements. 
+
+I've already calculated the average mean across the 1000 simulations, which is equal to 4.99. As shown before, this is very close to the population value being estimated $\mu = 1/\lambda = 1/0.2 = 5$. Moreover, the histogram displayed in the section comparing the sample mean to the theoretical mean looks approximately normal: we have a bell-shaped curve, approximately centered around its 4.99 mean. 
+
+To have an even better sense of the distribution of the sample mean, we can also calculate the variance of the sample mean and its standard error: 
+
+```{r, standard error}
+## Calculate the empirical variance and standard error of sample mean
+var_sm <- var(sm$means)
+var_sm
+se <- sd(sm$means)
+se
+```
+
+Note that the theoretical values for the variance and standard error of the sample mean are, respectively, $\sigma^2/n=25/40 = .625$ and $\sigma/sqrt{n} = 5/sqrt{40} = 0.79$, values that are, once again, remarkably close to the those calculated with the simulated data.
+We can then use the standard error to calculate the share of simulated means, out of the 1000 calculated, which fall under 1 or 2 standard errors of the sample mean:
+
+```{r, share of means within 1 or 2 standard errors of the sample mean}
+
+## create subset of means that fall within 1 standard error
+se1 <- (sm$means[sm$means>mosm-se & sm$means<mosm+se])
+## calculate share of means within 1 standard error out of the 1000 simulations
+length(se1)/1000
+## create subset of means that fall within 2 standard errors
+se2 <- (sm$means[sm$means>mosm-2*se & sm$means<mosm+2*se])
+## calculate share of means within 2 standard error out of the 1000 simulations
+length(se2)/1000
+```
+
+These calculations indicate that 67.3% and 96.5% of all simulations have means respectively within one or two standard errors of the sample mean of the 1000 simulations. The theoretical normal distribution has 68% and 95% of observations within one or two standard deviations, so once again our simulated data seems very close to a normal distribution, as the central limit theorem would predict.
+
+Finally, let's contrast the graph presented for the distribution of the sample means across the 1000 samples with a histogram of 1000 values generated from an exponential distribution with lambda = 0.2.
+
+``` {r, histogram , fig.height=4, fig.width=4, fig.align='center'}
+set.seed(1)
+#generate data
+x<- rexp(1000,0.2)
+dat <- as.data.frame(x)
+#create plot
+g2 <- ggplot(dat, aes(x = x)) + geom_histogram(aes(y = after_stat(density), fill = "salmon")) 
+## remove legend, add title and fix x label
+g2 <- g2 + theme(legend.position="none") + ggtitle("Distribution for n = 1000") +xlab("value")
+## add density line and sample mean
+g2 <- g2 + geom_density(linewidth = 1) + geom_vline(xintercept = mean(dat$x), linewidth = 1)
+g2
+```
+
+Unlike the distribution of the means of the 1000 random samples with 40 observations each, the distribution of the one sample with 1000 observations is not symmetric around the mean, but skewed, following the rough shape of an exponential distribution.
+
+This comparison illustrates the key point of the CLT with even more force: no matter the underlying distribution of the variables in a sample, as long as they are IID, the distribution of their mean approaches that of a normal as the sample size increases.
