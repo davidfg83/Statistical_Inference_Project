@@ -1,0 +1,87 @@
+---
+title: "Tooth Growth Analysis"
+author: "David Gonzalez"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+
+In this project, I test hypotheses about the relation between the provision method of vitamin C to guinea pigs and its dosage, on the one hand, and the length of the pigs' odontoblasts, on the other, by applying standard hypothesis testing techniques to the data in the "ToothGrowth" database available in the datasets package in R.
+
+## Data loading and Exploratory Analysis
+
+```{r, load the data}
+##load the data and check data structure
+data("ToothGrowth")
+str(ToothGrowth)
+```
+
+Consistent with the data structure printed above, and according to the help file, the Tooth Growth database contains 3 variables about 60 guinea pigs:
+
+- len, the length of the pigs' odontoblasts
+
+- supp: the method of providing vitamin C to each animal - VC if it was ascorbic acid, OJ if it was orange juice
+
+- dose: the dose provided per day in miligrams. Possible value: 0.5, 1, and 2.
+
+Given these variables, two potentially interesting questions arise: 
+
+1) What is the relation between delivery method and length?
+
+2) What is the relation between dosage and length?
+
+To get a a preliminary sense of these relations, we can use boxplots:
+
+```{r, box plots, fig.height=3, fig.width=3, fig.align='center'}
+library(ggplot2)
+#convert dose into a factor variable
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+# create box plots for len given dose and supp
+g1 <- ggplot(ToothGrowth, aes(x=dose, y=len)) + geom_boxplot()
+g2 <- ggplot(ToothGrowth, aes(x=supp, y=len)) + geom_boxplot()
+g1
+g2
+```
+
+The box plots indicate that higher doses are related to larger odontoblasts. Note that there is no overlap between the boxes (which contain the middle 50% of the length values in each dosage) for the 3 dosages. The connection between method of delivery is somewhat weaker: there is substantial overlap between the two boxes. In the next section, we will test hypotheses based on these preliminary observations.
+
+## Hypothesis testing
+
+### Vitamin C dosage and odontoblasts
+
+We will conduct pairwise comparisons of the 3 dosages: 0.5, 1, and 2. Since we are conducting multiple tests, it is appropriate to use a Bonferroni correction, introduced in Dr. Leek's guest lecture.
+Our null hypotheses (notice the plural) are that the mean length is the same for all 3 dosages. The alternative hypotheses are that, in each pairwise combination, the mean length is larger for the larger dosage. That is, we have 3 tests:
+
+- Test 1: $H_{0}: \mu_{0.5} = \mu_{1}$ vs $H_{a}: \mu_{0.5} < \mu_{1}$
+
+- Test 2: $H_{0}: \mu_{0.5} = \mu_{2}$ vs $H_{a}: \mu_{0.5} < \mu_{2}$
+
+- Test 3: $H_{0}: \mu_{1} = \mu_{2}$ vs $H_{a}: \mu_{1} < \mu_{2}$
+
+Out of abundance of caution, I assume that the variance of tooth length is different for different dosages, thus keeping the default for the parameter var.equal = FALSE.
+
+```{r, vitamin C dosage vs length testing}
+pairwise.t.test(ToothGrowth$len, ToothGrowth$dose, p.adjust.method = 'bonferroni')
+```
+
+The output reports the p values for each test in the matrix. For example, for the test comparing the 0.5mg daily dosage to the 1mg dosage, the (Bonferroni-corrected) p value is 2.0e-08. The p values are all very small, which indicates that the probabilities of obtaining test statistics as or more extreme in favor of the alternative hypotheses IF the null hypotheses were true is very small. We thus reject the three null hypotheses.
+
+### Method of delivery and odontoblasts
+
+In this section, there is only one test to conduct: 
+$H_{0}: \mu_{VC} = \mu_{OJ}$ vs $H_{a}: \mu_{VC} < \mu_{OJ}$
+
+Once again, I assume that the variance of length is different for the two samples (OJ and VC).
+
+```{r, vitamin C administration method vs length}
+t.test(ToothGrowth$len[ToothGrowth$supp=="OJ"], ToothGrowth$len[ToothGrowth$supp=="VC"], alternative = "greater")
+```
+
+Given the output of this test, we reject the null that the two dispensation methods have the same mean, as a difference of 0 between them is not in the 95% confidence interval. Notice, moreover, the p-value of 0.03.
+
+## Conclusion
+The tests in this report support the hypotheses that odontoblast length is greater when the vitamin C dosage is 2 versus 1 versus 0.5 and when vitamin C is delivered through orange juice rather than ascorbic acid.
